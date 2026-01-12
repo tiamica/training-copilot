@@ -1,0 +1,2 @@
+# training-copilot
+Training buddy
