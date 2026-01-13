@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D City Chase - Inverted Controls</title>
+    <title>3D City Chase - Fixed Controls</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -438,9 +438,9 @@
         
         <div class="sidebar">
             <div class="controls">
-                <h2><i class="fas fa-gamepad"></i> CONTROLS (INVERTED)</h2>
+                <h2><i class="fas fa-gamepad"></i> CONTROLS</h2>
                 <div class="controls-note">
-                    <i class="fas fa-exclamation-triangle"></i> Controls are inverted (tank-style). W/S moves forward/back, A/D rotates.
+                    <i class="fas fa-check-circle"></i> Controls fixed! W = Forward, S = Backward
                 </div>
                 <div class="control-group">
                     <div class="key">W</div>
@@ -452,11 +452,11 @@
                 </div>
                 <div class="control-group">
                     <div class="key">A</div>
-                    <div class="control-description">Rotate Left</div>
+                    <div class="control-description">Strafe Left</div>
                 </div>
                 <div class="control-group">
                     <div class="key">D</div>
-                    <div class="control-description">Rotate Right</div>
+                    <div class="control-description">Strafe Right</div>
                 </div>
                 <div class="control-group">
                     <div class="key">SPACE</div>
@@ -484,11 +484,11 @@
                 </div>
                 <div class="control-group">
                     <div class="key">Q</div>
-                    <div class="control-description">Strafe Left (in vehicle)</div>
+                    <div class="control-description">Rotate Left (in vehicle)</div>
                 </div>
                 <div class="control-group">
                     <div class="key">E</div>
-                    <div class="control-description">Strafe Right (in vehicle)</div>
+                    <div class="control-description">Rotate Right (in vehicle)</div>
                 </div>
             </div>
             
@@ -582,7 +582,7 @@
             <div class="instructions">
                 <h2><i class="fas fa-info-circle"></i> INSTRUCTIONS</h2>
                 <ul>
-                    <li><strong>INVERTED CONTROLS:</strong> W/S = Forward/Back, A/D = Rotate</li>
+                    <li><strong>FIXED CONTROLS:</strong> W = Forward, S = Backward</li>
                     <li>Shoot with SPACEBAR or RIGHT MOUSE CLICK</li>
                     <li>Press E to enter/exit vehicles</li>
                     <li>Hold SHIFT to run or accelerate in vehicles</li>
@@ -614,10 +614,9 @@
     </div>
     
     <div class="footer">
-        <p>City Chase 3D - Inverted Controls | 50+ NPCs | 15+ Vehicle Types | 
+        <p>City Chase 3D - Fixed Controls | 50+ NPCs | 15+ Vehicle Types | 
         <a href="#" id="resetGame">Reset Game</a> | 
-        <a href="#" id="fullscreenToggle">Toggle Fullscreen</a> | 
-        <a href="#" id="toggleControls">Toggle Controls</a></p>
+        <a href="#" id="fullscreenToggle">Toggle Fullscreen</a></p>
     </div>
 
     <script>
@@ -627,8 +626,10 @@
         let keys = {};
         let clock = new THREE.Clock();
         
-        // Inverted controls mode (true = inverted/tank controls, false = standard)
-        let invertedControls = true;
+        // Camera control variables
+        let cameraDistance = 10;
+        let cameraHeight = 5;
+        let cameraAngle = 0;
         
         let gameState = {
             player: {
@@ -643,7 +644,8 @@
                 vehicleType: null,
                 vehicle: null,
                 cameraMode: 'third', // 'first' or 'third'
-                isOnGround: true
+                isOnGround: true,
+                rotationSpeed: 0.08
             },
             vehicles: [],
             npcs: [],
@@ -742,7 +744,7 @@
             // Hide loading screen
             setTimeout(() => {
                 document.getElementById('loadingScreen').style.display = 'none';
-                showNotification('INVERTED CONTROLS: W/S = Forward/Back, A/D = Rotate', 6000);
+                showNotification('CONTROLS FIXED: W = Forward, S = Backward', 6000);
             }, 500);
             
             // Start game loop
@@ -791,7 +793,7 @@
         // Generate massive city
         function generateCity() {
             // Ground - larger for more vehicles/NPCs
-            const groundGeometry = new THREE.PlaneGeometry(3000, 3000);
+            const groundGeometry = new THREE.PlaneGeometry(2000, 2000);
             const groundMaterial = new THREE.MeshPhongMaterial({ 
                 color: 0x2ecc71,
                 side: THREE.DoubleSide
@@ -803,12 +805,11 @@
             
             // Roads with more variety
             const roadMaterial = new THREE.MeshPhongMaterial({ color: 0x444444 });
-            const roadMarkingMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
             
             // Create a dense grid of roads
-            for (let i = -1200; i <= 1200; i += 150) {
+            for (let i = -800; i <= 800; i += 200) {
                 // Horizontal roads
-                const roadHGeometry = new THREE.PlaneGeometry(3000, 25);
+                const roadHGeometry = new THREE.PlaneGeometry(2000, 30);
                 const roadH = new THREE.Mesh(roadHGeometry, roadMaterial);
                 roadH.position.set(0, 0.01, i);
                 roadH.rotation.x = -Math.PI / 2;
@@ -816,7 +817,7 @@
                 scene.add(roadH);
                 
                 // Vertical roads
-                const roadVGeometry = new THREE.PlaneGeometry(25, 3000);
+                const roadVGeometry = new THREE.PlaneGeometry(30, 2000);
                 const roadV = new THREE.Mesh(roadVGeometry, roadMaterial);
                 roadV.position.set(i, 0.01, 0);
                 roadV.rotation.x = -Math.PI / 2;
@@ -827,10 +828,10 @@
             // More buildings - create a dense city
             const buildingColors = [0x8B4513, 0xA0522D, 0xD2691E, 0xCD853F, 0xD2B48C, 0x808080, 0xA9A9A9, 0xC0C0C0];
             
-            for (let i = -1100; i <= 1100; i += 120) {
-                for (let j = -1100; j <= 1100; j += 120) {
+            for (let i = -750; i <= 750; i += 150) {
+                for (let j = -750; j <= 750; j += 150) {
                     // Skip roads
-                    if (Math.abs(i) % 150 === 0 || Math.abs(j) % 150 === 0) continue;
+                    if (Math.abs(i) % 200 === 0 || Math.abs(j) % 200 === 0) continue;
                     
                     const height = 15 + Math.random() * 50;
                     const width = 15 + Math.random() * 40;
@@ -870,19 +871,19 @@
             }
             
             // Add lots of trees and other props
-            for (let i = 0; i < 150; i++) {
+            for (let i = 0; i < 100; i++) {
                 const tree = createTree();
                 tree.position.set(
-                    Math.random() * 2800 - 1400,
+                    Math.random() * 1800 - 900,
                     0,
-                    Math.random() * 2800 - 1400
+                    Math.random() * 1800 - 900
                 );
                 scene.add(tree);
             }
             
             // Add some street lights
-            for (let i = -1200; i <= 1200; i += 300) {
-                for (let j = -1200; j <= 1200; j += 300) {
+            for (let i = -800; i <= 800; i += 300) {
+                for (let j = -800; j <= 800; j += 300) {
                     if (Math.random() > 0.5) {
                         const streetLight = createStreetLight();
                         streetLight.position.set(i + Math.random() * 100 - 50, 0, j + Math.random() * 100 - 50);
@@ -958,9 +959,9 @@
                 const type = npcTypes[Math.floor(Math.random() * npcTypes.length)];
                 const npc = createNPC(type);
                 npc.position.set(
-                    Math.random() * 2800 - 1400,
+                    Math.random() * 1800 - 900,
                     0.5,
-                    Math.random() * 2800 - 1400
+                    Math.random() * 1800 - 900
                 );
                 
                 // Random direction
@@ -1081,9 +1082,9 @@
                     
                     // Position vehicles across the entire map
                     vehicle.position.set(
-                        Math.random() * 2800 - 1400,
+                        Math.random() * 1800 - 900,
                         vehicleType.type === 'bus' ? 1 : 0.5,
-                        Math.random() * 2800 - 1400
+                        Math.random() * 1800 - 900
                     );
                     
                     // Scale based on type
@@ -1107,8 +1108,8 @@
                     // AI for occupied vehicles
                     if (vehicle.userData.occupied) {
                         vehicle.userData.ai = {
-                            targetX: Math.random() * 2800 - 1400,
-                            targetZ: Math.random() * 2800 - 1400,
+                            targetX: Math.random() * 1800 - 900,
+                            targetZ: Math.random() * 1800 - 900,
                             changeTargetTimer: Math.random() * 5,
                             aggression: Math.random() // How aggressively they drive
                         };
@@ -1271,14 +1272,6 @@
                     red: [redLight1], 
                     blue: [blueLight1] 
                 };
-                
-                // Add "POLICE" text (simulated with boxes)
-                if (!isPlayerCar) {
-                    const policeText = createTextMesh("POLICE", 0.2, 0xffffff);
-                    policeText.position.set(0, bodyHeight + 0.1, 0);
-                    policeText.rotation.y = Math.PI;
-                    vehicleGroup.add(policeText);
-                }
             } else if (type === 'ambulance') {
                 // Ambulance stripe
                 const stripeGeometry = new THREE.BoxGeometry(bodyWidth + 0.1, 0.1, bodyDepth);
@@ -1305,12 +1298,6 @@
                 const sign = new THREE.Mesh(signGeometry, signMaterial);
                 sign.position.set(0, bodyHeight + 0.2, 0);
                 vehicleGroup.add(sign);
-                
-                // Taxi text
-                const taxiText = createTextMesh("TAXI", 0.15, 0xffff00);
-                taxiText.position.set(0, bodyHeight + 0.2, 0);
-                taxiText.rotation.y = Math.PI;
-                vehicleGroup.add(taxiText);
             } else if (type === 'pickup') {
                 // Pickup truck bed
                 const bedGeometry = new THREE.BoxGeometry(bodyWidth * 0.9, 0.5, bodyDepth * 0.4);
@@ -1323,27 +1310,14 @@
             return vehicleGroup;
         }
         
-        // Simple text mesh using boxes (since we can't load fonts)
-        function createTextMesh(text, size, color) {
-            const textGroup = new THREE.Group();
-            
-            // Simple representation - just a rectangle with color
-            const textGeometry = new THREE.BoxGeometry(size * text.length * 0.6, size, 0.1);
-            const textMaterial = new THREE.MeshPhongMaterial({ color: color });
-            const textBackground = new THREE.Mesh(textGeometry, textMaterial);
-            textGroup.add(textBackground);
-            
-            return textGroup;
-        }
-        
         // Generate collectibles
         function generateCollectibles() {
             for (let i = 0; i < 40; i++) {
                 const collectible = createCollectible();
                 collectible.position.set(
-                    Math.random() * 2800 - 1400,
+                    Math.random() * 1800 - 900,
                     0.5,
-                    Math.random() * 2800 - 1400
+                    Math.random() * 1800 - 900
                 );
                 collectible.userData.value = 50 + Math.floor(Math.random() * 150);
                 collectible.userData.type = 'money';
@@ -1404,20 +1378,21 @@
             camera.lookAt(player.position);
         }
         
-        // Update camera based on player position and mode
+        // Update camera based on player position and mode - FIXED
         function updateCamera(deltaTime) {
             if (gameState.player.inVehicle && gameState.player.vehicle) {
                 // Camera follows vehicle
                 const vehicle = gameState.player.vehicle;
-                const vehicleDirection = new THREE.Vector3();
-                vehicle.getWorldDirection(vehicleDirection);
                 
                 if (gameState.player.cameraMode === 'first') {
                     // First person view from vehicle
+                    const vehicleDirection = new THREE.Vector3(0, 0, -1);
+                    vehicleDirection.applyQuaternion(vehicle.quaternion);
+                    
                     camera.position.copy(vehicle.position);
                     camera.position.y += 1.5;
-                    camera.position.x += vehicleDirection.x * 1;
-                    camera.position.z += vehicleDirection.z * 1;
+                    camera.position.addScaledVector(vehicleDirection, 2);
+                    
                     camera.lookAt(
                         vehicle.position.x + vehicleDirection.x * 10,
                         vehicle.position.y,
@@ -1425,7 +1400,7 @@
                     );
                 } else {
                     // Third person view of vehicle
-                    const offset = new THREE.Vector3(0, 4, -10);
+                    const offset = new THREE.Vector3(0, 4, -12);
                     offset.applyQuaternion(vehicle.quaternion);
                     camera.position.copy(vehicle.position).add(offset);
                     camera.lookAt(vehicle.position);
@@ -1434,21 +1409,27 @@
                 // Camera follows player on foot
                 if (gameState.player.cameraMode === 'first') {
                     // First person view
+                    const playerDirection = new THREE.Vector3(0, 0, -1);
+                    playerDirection.applyQuaternion(player.quaternion);
+                    
                     camera.position.copy(player.position);
                     camera.position.y += 1.6;
+                    camera.position.addScaledVector(playerDirection, 0.5);
                     
-                    // Look in direction player is facing
-                    const lookDirection = new THREE.Vector3(0, 0, -1);
-                    lookDirection.applyQuaternion(player.quaternion);
                     camera.lookAt(
-                        player.position.x + lookDirection.x * 10,
+                        player.position.x + playerDirection.x * 10,
                         player.position.y + 1.6,
-                        player.position.z + lookDirection.z * 10
+                        player.position.z + playerDirection.z * 10
                     );
                 } else {
-                    // Third person view
+                    // Third person view - FIXED: Camera always looks at player from behind
+                    const playerDirection = new THREE.Vector3(0, 0, -1);
+                    playerDirection.applyQuaternion(player.quaternion);
+                    
+                    // Calculate camera position behind the player
                     const cameraOffset = new THREE.Vector3(0, 4, -8);
                     cameraOffset.applyQuaternion(player.quaternion);
+                    
                     camera.position.copy(player.position).add(cameraOffset);
                     camera.lookAt(player.position);
                 }
@@ -1465,23 +1446,6 @@
             // Show/hide player model based on camera mode
             if (playerModel) {
                 playerModel.visible = gameState.player.cameraMode !== 'first' || !gameState.player.inVehicle;
-            }
-        }
-        
-        // Toggle controls between inverted and standard
-        function toggleControls() {
-            invertedControls = !invertedControls;
-            const mode = invertedControls ? "INVERTED (Tank)" : "STANDARD";
-            showNotification(`Controls: ${mode} - W/S: ${invertedControls ? "Forward/Back" : "Forward/Back"}, A/D: ${invertedControls ? "Rotate" : "Strafe"}`);
-            
-            // Update control instructions
-            const controlGroups = document.querySelectorAll('.control-group');
-            if (invertedControls) {
-                controlGroups[2].querySelector('.control-description').textContent = "Rotate Left";
-                controlGroups[3].querySelector('.control-description').textContent = "Rotate Right";
-            } else {
-                controlGroups[2].querySelector('.control-description').textContent = "Strafe Left";
-                controlGroups[3].querySelector('.control-description').textContent = "Strafe Right";
             }
         }
         
@@ -1560,23 +1524,34 @@
             });
             
             // Mouse movement for looking around in first person
+            let mouseX = 0;
+            let mouseY = 0;
+            let mouseDown = false;
+            
+            renderer.domElement.addEventListener('mousedown', (e) => {
+                if (e.button === 0) { // Left click
+                    mouseDown = true;
+                }
+            });
+            
+            renderer.domElement.addEventListener('mouseup', (e) => {
+                if (e.button === 0) { // Left click
+                    mouseDown = false;
+                }
+            });
+            
             renderer.domElement.addEventListener('mousemove', (e) => {
-                if (gameState.player.cameraMode === 'first') {
+                if (gameState.player.cameraMode === 'first' && mouseDown) {
                     // Update player/camera rotation based on mouse movement
-                    const sensitivity = 0.002;
-                    const rect = renderer.domElement.getBoundingClientRect();
-                    
-                    // Calculate mouse movement
-                    const movementX = e.movementX || 0;
-                    const movementY = e.movementY || 0;
+                    const sensitivity = 0.005;
                     
                     // Horizontal rotation
-                    player.rotation.y -= movementX * sensitivity;
+                    player.rotation.y -= e.movementX * sensitivity;
                     
                     // Vertical rotation (limited)
-                    if (camera.rotation.x - movementY * sensitivity > -1.5 && 
-                        camera.rotation.x - movementY * sensitivity < 1.5) {
-                        camera.rotation.x -= movementY * sensitivity;
+                    const newRotationX = camera.rotation.x - e.movementY * sensitivity;
+                    if (newRotationX > -1.5 && newRotationX < 1.5) {
+                        camera.rotation.x = newRotationX;
                     }
                 }
             });
@@ -1615,85 +1590,52 @@
             
             // Camera toggle button
             document.getElementById('cameraToggle').addEventListener('click', toggleCamera);
-            
-            // Toggle controls button
-            document.getElementById('toggleControls').addEventListener('click', (e) => {
-                e.preventDefault();
-                toggleControls();
-            });
         }
         
-        // Update player movement with inverted controls
+        // Update player movement - FIXED CONTROLS
         function updatePlayer(deltaTime) {
-            const speed = (keys['ShiftLeft'] || keys['ShiftRight']) ? 0.18 : 0.1;
-            const rotationSpeed = 0.05;
+            const speed = (keys['ShiftLeft'] || keys['ShiftRight']) ? 0.2 : 0.1;
+            const rotationSpeed = gameState.player.rotationSpeed;
             
             if (!gameState.player.inVehicle) {
-                // Player on foot movement
-                if (invertedControls) {
-                    // INVERTED CONTROLS (Tank-style): W/S = forward/back, A/D = rotate
-                    if (keys['KeyW'] || keys['ArrowUp']) {
-                        // Move forward in player's facing direction
-                        const forward = new THREE.Vector3(0, 0, -1);
-                        forward.applyQuaternion(player.quaternion);
-                        player.position.addScaledVector(forward, speed);
-                    }
-                    if (keys['KeyS'] || keys['ArrowDown']) {
-                        // Move backward in player's facing direction
-                        const backward = new THREE.Vector3(0, 0, 1);
-                        backward.applyQuaternion(player.quaternion);
-                        player.position.addScaledVector(backward, speed);
-                    }
-                    if (keys['KeyA'] || keys['ArrowLeft']) {
-                        // Rotate left
-                        player.rotation.y += rotationSpeed;
-                    }
-                    if (keys['KeyD'] || keys['ArrowRight']) {
-                        // Rotate right
-                        player.rotation.y -= rotationSpeed;
-                    }
-                } else {
-                    // STANDARD CONTROLS: W/S = forward/back, A/D = strafe
-                    const direction = new THREE.Vector3();
+                // Player on foot movement - FIXED: W = Forward, S = Backward
+                const forward = new THREE.Vector3(0, 0, -1);
+                forward.applyQuaternion(player.quaternion);
+                
+                const right = new THREE.Vector3(1, 0, 0);
+                right.applyQuaternion(player.quaternion);
+                
+                // Calculate movement direction
+                const moveDirection = new THREE.Vector3();
+                
+                if (keys['KeyW'] || keys['ArrowUp']) {
+                    // Move forward in player's facing direction
+                    moveDirection.add(forward);
+                }
+                if (keys['KeyS'] || keys['ArrowDown']) {
+                    // Move backward (opposite of forward)
+                    moveDirection.sub(forward);
+                }
+                if (keys['KeyA'] || keys['ArrowLeft']) {
+                    // Strafe left
+                    moveDirection.sub(right);
+                }
+                if (keys['KeyD'] || keys['ArrowRight']) {
+                    // Strafe right
+                    moveDirection.add(right);
+                }
+                
+                // Normalize if moving diagonally
+                if (moveDirection.length() > 0) {
+                    moveDirection.normalize();
                     
-                    if (keys['KeyW'] || keys['ArrowUp']) {
-                        direction.z -= 1;
-                    }
-                    if (keys['KeyS'] || keys['ArrowDown']) {
-                        direction.z += 1;
-                    }
-                    if (keys['KeyA'] || keys['ArrowLeft']) {
-                        direction.x -= 1;
-                    }
-                    if (keys['KeyD'] || keys['ArrowRight']) {
-                        direction.x += 1;
-                    }
+                    // Update position
+                    player.position.addScaledVector(moveDirection, speed);
                     
-                    // Normalize direction if moving diagonally
-                    if (direction.length() > 0) {
-                        direction.normalize();
-                        
-                        // Apply player rotation for forward movement
-                        const forward = new THREE.Vector3(0, 0, -1);
-                        forward.applyQuaternion(player.quaternion);
-                        
-                        const right = new THREE.Vector3(1, 0, 0);
-                        right.applyQuaternion(player.quaternion);
-                        
-                        // Calculate movement vector
-                        const moveVector = new THREE.Vector3();
-                        moveVector.addScaledVector(forward, -direction.z * speed);
-                        moveVector.addScaledVector(right, direction.x * speed);
-                        
-                        // Update position
-                        player.position.x += moveVector.x;
-                        player.position.z += moveVector.z;
-                        
-                        // Rotate player to face movement direction
-                        if (direction.z < 0) {
-                            const targetRotation = Math.atan2(direction.x, -direction.z);
-                            player.rotation.y = THREE.MathUtils.lerp(player.rotation.y, targetRotation, 0.2);
-                        }
+                    // Rotate player to face movement direction when moving forward/backward
+                    if (keys['KeyW'] || keys['KeyS']) {
+                        const targetRotation = Math.atan2(moveDirection.x, moveDirection.z);
+                        player.rotation.y = THREE.MathUtils.lerp(player.rotation.y, targetRotation, 0.1);
                     }
                 }
                 
@@ -1713,39 +1655,22 @@
                 gameState.player.y = player.position.y;
                 gameState.player.z = player.position.z;
             } else if (gameState.player.vehicle) {
-                // Player in vehicle movement
+                // Player in vehicle movement - FIXED: W = Forward, S = Backward
                 const vehicle = gameState.player.vehicle;
                 let acceleration = 0;
                 let steering = 0;
                 
-                // Inverted controls for vehicle too
-                if (invertedControls) {
-                    if (keys['KeyW'] || keys['ArrowUp']) {
-                        acceleration = vehicle.userData.acceleration;
-                    }
-                    if (keys['KeyS'] || keys['ArrowDown']) {
-                        acceleration = -vehicle.userData.acceleration;
-                    }
-                    if (keys['KeyA'] || keys['ArrowLeft']) {
-                        steering = vehicle.userData.turnSpeed;
-                    }
-                    if (keys['KeyD'] || keys['ArrowRight']) {
-                        steering = -vehicle.userData.turnSpeed;
-                    }
-                } else {
-                    // Standard vehicle controls (already inverted by nature)
-                    if (keys['KeyW'] || keys['ArrowUp']) {
-                        acceleration = vehicle.userData.acceleration;
-                    }
-                    if (keys['KeyS'] || keys['ArrowDown']) {
-                        acceleration = -vehicle.userData.acceleration;
-                    }
-                    if (keys['KeyA'] || keys['ArrowLeft']) {
-                        steering = vehicle.userData.turnSpeed;
-                    }
-                    if (keys['KeyD'] || keys['ArrowRight']) {
-                        steering = -vehicle.userData.turnSpeed;
-                    }
+                if (keys['KeyW'] || keys['ArrowUp']) {
+                    acceleration = vehicle.userData.acceleration;
+                }
+                if (keys['KeyS'] || keys['ArrowDown']) {
+                    acceleration = -vehicle.userData.acceleration;
+                }
+                if (keys['KeyA'] || keys['ArrowLeft']) {
+                    steering = vehicle.userData.turnSpeed;
+                }
+                if (keys['KeyD'] || keys['ArrowRight']) {
+                    steering = -vehicle.userData.turnSpeed;
                 }
                 
                 // Apply acceleration
@@ -1759,7 +1684,7 @@
                     vehicle.userData.speed = -vehicle.userData.maxSpeed / 2;
                 }
                 
-                // Apply steering (more effective at lower speeds)
+                // Apply steering
                 const steeringEffect = Math.max(0.1, 1 - Math.abs(vehicle.userData.speed) / vehicle.userData.maxSpeed);
                 vehicle.rotation.y += steering * steeringEffect * (vehicle.userData.speed > 0 ? 1 : -1);
                 
@@ -1862,7 +1787,7 @@
                 }
                 
                 // Keep NPCs in bounds (looser bounds for larger map)
-                const bound = 1400;
+                const bound = 900;
                 if (npc.position.x < -bound) npc.position.x = -bound;
                 if (npc.position.x > bound) npc.position.x = bound;
                 if (npc.position.z < -bound) npc.position.z = -bound;
@@ -1903,8 +1828,8 @@
                     
                     // Change target periodically
                     if (vehicle.userData.ai.changeTargetTimer <= 0) {
-                        vehicle.userData.ai.targetX = Math.random() * 2800 - 1400;
-                        vehicle.userData.ai.targetZ = Math.random() * 2800 - 1400;
+                        vehicle.userData.ai.targetX = Math.random() * 1800 - 900;
+                        vehicle.userData.ai.targetZ = Math.random() * 1800 - 900;
                         vehicle.userData.ai.changeTargetTimer = 2 + Math.random() * 6;
                     }
                     
@@ -2008,9 +1933,9 @@
                     setTimeout(() => {
                         const newCollectible = createCollectible();
                         newCollectible.position.set(
-                            Math.random() * 2800 - 1400,
+                            Math.random() * 1800 - 900,
                             0.5,
-                            Math.random() * 2800 - 1400
+                            Math.random() * 1800 - 900
                         );
                         newCollectible.userData.value = 50 + Math.floor(Math.random() * 150);
                         newCollectible.userData.type = 'money';
@@ -2161,15 +2086,9 @@
                 bullet.position.y += 1.6;
             }
             
-            // Set bullet direction
+            // Set bullet direction - FIXED: Use player's facing direction
             const direction = new THREE.Vector3(0, 0, -1);
-            if (gameState.player.cameraMode === 'first') {
-                // Use camera direction for first person
-                camera.getWorldDirection(direction);
-            } else {
-                // Use player forward direction for third person
-                direction.applyQuaternion(player.quaternion);
-            }
+            direction.applyQuaternion(player.quaternion);
             
             bullet.userData.velocity = direction.multiplyScalar(2);
             bullet.userData.life = 1.5; // seconds
@@ -2218,13 +2137,6 @@
                 healthBar.style.backgroundColor = '#f39c12';
             } else {
                 healthBar.style.backgroundColor = '#e74c3c';
-            }
-            
-            // Show low health warning
-            if (gameState.player.health < 30 && gameState.player.health > 0) {
-                healthBar.style.animation = gameState.player.health < 20 ? 'pulse 0.5s infinite' : 'none';
-            } else {
-                healthBar.style.animation = 'none';
             }
         }
         
@@ -2283,8 +2195,8 @@
             }
             
             // Draw player position
-            const playerX = (player.position.x + 1400) / 2800 * miniMap.width;
-            const playerY = (player.position.z + 1400) / 2800 * miniMap.height;
+            const playerX = (player.position.x + 900) / 1800 * miniMap.width;
+            const playerY = (player.position.z + 900) / 1800 * miniMap.height;
             
             ctx.fillStyle = gameState.player.inVehicle ? '#e74c3c' : '#ffffff';
             ctx.beginPath();
@@ -2308,8 +2220,8 @@
             let policeCount = 0;
             gameState.vehicles.forEach(vehicle => {
                 if (vehicle.userData.type === 'police' && policeCount < 20) {
-                    const vx = (vehicle.position.x + 1400) / 2800 * miniMap.width;
-                    const vy = (vehicle.position.z + 1400) / 2800 * miniMap.height;
+                    const vx = (vehicle.position.x + 900) / 1800 * miniMap.width;
+                    const vy = (vehicle.position.z + 900) / 1800 * miniMap.height;
                     
                     ctx.fillStyle = '#3498db';
                     ctx.beginPath();
@@ -2355,24 +2267,6 @@
             // Update game time
             gameState.gameTime += deltaTime;
             
-            // Randomly decrease wanted level over time if hiding
-            if (gameState.gameTime - gameState.lastWantedIncrease > 15 && gameState.wantedLevel > 0) {
-                // Decrease faster if player is not in a vehicle and not moving
-                const isMoving = keys['KeyW'] || keys['KeyA'] || keys['KeyS'] || keys['KeyD'] || 
-                                keys['ArrowUp'] || keys['ArrowLeft'] || keys['ArrowDown'] || keys['ArrowRight'];
-                const decreaseChance = gameState.player.inVehicle ? 0.1 : (isMoving ? 0.05 : 0.2);
-                
-                if (Math.random() < decreaseChance * deltaTime) {
-                    gameState.wantedLevel--;
-                    updateWantedLevel();
-                    gameState.lastWantedIncrease = gameState.gameTime;
-                    
-                    if (gameState.wantedLevel === 0) {
-                        showNotification('Wanted level cleared!');
-                    }
-                }
-            }
-            
             // Random police spawning based on wanted level
             if (gameState.wantedLevel > 0) {
                 gameState.policeSpawnTimer -= deltaTime;
@@ -2384,7 +2278,7 @@
                     const spawnZ = player.position.z + Math.sin(angle) * distance;
                     
                     // Check if spawn position is reasonable
-                    if (Math.abs(spawnX) < 1400 && Math.abs(spawnZ) < 1400) {
+                    if (Math.abs(spawnX) < 900 && Math.abs(spawnZ) < 900) {
                         const policeCar = createVehicle('police', 0x3498db);
                         policeCar.position.set(spawnX, 0.5, spawnZ);
                         policeCar.userData.type = 'police';
@@ -2424,17 +2318,6 @@
         
         // Initialize the game
         window.addEventListener('DOMContentLoaded', init);
-        
-        // Add CSS animation for low health pulse
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes pulse {
-                0% { opacity: 1; }
-                50% { opacity: 0.5; }
-                100% { opacity: 1; }
-            }
-        `;
-        document.head.appendChild(style);
     </script>
 </body>
 </html>
