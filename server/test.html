@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Training Copilot Tester</title>
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .box { padding: 20px; margin: 15px 0; border-radius: 8px; }
+        .success { background: #d1fae5; border: 2px solid #10b981; }
+        .error { background: #fee2e2; border: 2px solid #ef4444; }
+        .warning { background: #fef3c7; border: 2px solid #f59e0b; }
+        .info { background: #dbeafe; border: 2px solid #3b82f6; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; border: none; border-radius: 5px; }
+        .code { background: #1f2937; color: white; padding: 15px; border-radius: 5px; font-family: monospace; }
+        .flex { display: flex; gap: 10px; flex-wrap: wrap; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Training Copilot Debug & Setup</h1>
+    
+    <div id="protocol-warning" class="box warning" style="display: none;">
+        <h3>⚠️ Protocol Warning</h3>
+        <p>You're viewing this page via <code>file://</code> which causes CORS issues.</p>
+        <p><strong>Solution:</strong> Run a local server:</p>
+        <div class="code">
+            # In terminal, navigate to project folder:<br>
+            cd /Users/emmanuel.ihenacho/work/training-copilot<br><br>
+            
+            # Start server:<br>
+            python -m http.server 8000<br><br>
+            
+            # Then open: <a href="http://localhost:8000/test.html" target="_blank">http://localhost:8000/test.html</a>
+        </div>
+        <button onclick="window.open('http://localhost:8000/test.html')">Open via HTTP Server</button>
+    </div>
+    
+    <div class="box info">
+        <h3>📋 Setup Checklist</h3>
+        <div id="checklist">
+            <div>1. Ollama installed: <span id="check-ollama">❓</span></div>
+            <div>2. Model downloaded: <span id="check-model">❓</span></div>
+            <div>3. Ollama running: <span id="check-running">❓</span></div>
+            <div>4. Proxy server: <span id="check-proxy">❓</span></div>
+            <div>5. Bookmarklet: <span id="check-bookmarklet">❓</span></div>
+        </div>
+    </div>
+    
+    <div class="box">
+        <h3>1. Test Ollama Direct Connection</h3>
+        <button onclick="testOllamaDirect()">Test Ollama (localhost:11434)</button>
+        <div id="ollama-direct-result"></div>
+    </div>
+    
+    <div class="box">
+        <h3>2. Test via Proxy Server</h3>
+        <div class="flex">
+            <button onclick="testProxyHealth()">Test Proxy Health</button>
+            <button onclick="testProxyGenerate()">Test Proxy AI</button>
+        </div>
+        <div id="proxy-result"></div>
+    </div>
+    
+    <div class="box">
+        <h3>3. Create Bookmarklet</h3>
+        <button onclick="createBookmarklet()">Generate Bookmarklet</button>
+        <div id="bookmarklet-result"></div>
+    </div>
+    
+    <div class="box">
+        <h3>4. Quick Commands</h3>
+        <div class="code">
+            # Terminal 1 (Ollama):<br>
+            ollama serve<br><br>
+            
+            # Terminal 2 (Proxy server):<br>
+            python proxy.py<br><br>
+            
+            # Terminal 3 (HTTP server for testing):<br>
+            python -m http.server 8000
+        </div>
+    </div>
+    
+    <script>
+        // Check if running via file://
+        if (window.location.protocol === 'file:') {
+            document.getElementById('protocol-warning').style.display = 'block';
+        }
+        
+        // Update checklist
+        async function updateChecklist() {
+            // Test Ollama connection
+            try {
+                const response = await fetch('http://localhost:11434/api/tags', {
+                    method: 'GET',
+                    mode: 'no-cors' // Just to check if server is there
+                }).catch(e => null);
+                document.getElementById('check-ollama').innerHTML = response ? '✅' : '❌';
+            } catch {
+                document.getElementById('check-ollama').innerHTML = '❌';
+            }
+            
+            // Test proxy
+            try {
+                const response = await fetch('http://localhost:3000/health');
+                const data = await response.json();
+                document.getElementById('check-proxy').innerHTML = '✅';
+                if (data.models && data.models.length > 0) {
+                    document.getElementById('check-model').innerHTML = '✅';
+                    document.getElementById('check-running').innerHTML = '✅';
+                }
+            } catch {
+                document.getElementById('check-proxy').innerHTML = '❌';
+            }
+        }
+        
+        // Test Ollama directly
+        async function testOllamaDirect() {
+            const resultDiv = document.getElementById('ollama-direct-result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                // First test with JSONP-like approach (no CORS)
+                const script = document.createElement('script');
+                script.src = 'http://localhost:11434/api/tags?callback=handleOllamaTest';
+                document.head.appendChild(script);
+                
+                window.handleOllamaTest = function(data) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ Ollama is running!<br>
+                            Models: ${data.models.map(m => m.name).join(', ')}
+                        </div>
+                    `;
+                    document.head.removeChild(script);
+                    updateChecklist();
+                };
+                
+                // Fallback after 3 seconds
+                setTimeout(() => {
+                    if (resultDiv.innerHTML === 'Testing...') {
+                        resultDiv.innerHTML = `
+                            <div class="warning">
+                                ⚠️ Could not connect directly (CORS blocked)<br>
+                                This is expected when testing from browser.<br>
+                                Use the proxy server instead.
+                            </div>
+                        `;
+                    }
+                }, 3000);
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Error: ${error.message}<br>
+                        Make sure Ollama is running: <code>ollama serve</code>
+                    </div>
+                `;
+            }
+        }
+        
+        // Test proxy health
+        async function testProxyHealth() {
+            const resultDiv = document.getElementById('proxy-result');
+            resultDiv.innerHTML = 'Testing proxy...';
+            
+            try {
+                const response = await fetch('http://localhost:3000/health');
+                const data = await response.json();
+                
+                if (data.ollama === 'connected') {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ Proxy Server: RUNNING at http://localhost:3000<br>
+                            ✅ Ollama: CONNECTED<br>
+                            Models: ${data.models ? data.models.join(', ') : 'None'}<br>
+                            Tip: ${data.tip || ''}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="warning">
+                            ⚠️ Proxy: RUNNING but Ollama not connected<br>
+                            Error: ${data.error}<br>
+                            Tip: ${data.tip}
+                        </div>
+                    `;
+                }
+                updateChecklist();
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Proxy Server: NOT RUNNING<br>
+                        Error: ${error.message}<br>
+                        Start the proxy: <code>python proxy.py</code>
+                    </div>
+                `;
+            }
+        }
+        
+        // Test proxy AI generation
+        async function testProxyGenerate() {
+            const resultDiv = document.getElementById('proxy-result');
+            resultDiv.innerHTML = 'Testing AI generation...';
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/generate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        model: 'llama2',
+                        prompt: 'Say "Hello from Training Copilot"',
+                        stream: false
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ AI Generation: WORKING<br>
+                            Model: ${data.model}<br>
+                            Response: "${data.response.substring(0, 100)}..."
+                        </div>
+                    `;
+                    document.getElementById('check-bookmarklet').innerHTML = '✅';
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            ❌ AI Generation: FAILED<br>
+                            Error: ${data.error || 'Unknown error'}
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Request failed: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        // Create bookmarklet
+        function createBookmarklet() {
+            const resultDiv = document.getElementById('bookmarklet-result');
+            
+            const bookmarkletCode = `javascript:(function(){
+  const widget = document.createElement('div');
+  widget.innerHTML = \`
+    <div style="position:fixed;top:20px;right:20px;background:white;padding:20px;border:2px solid #3b82f6;border-radius:10px;z-index:9999;width:300px;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+      <h3 style="margin:0 0 10px 0;color:#3b82f6;">🤖 Training Copilot</h3>
+      <p>✅ Connected to Ollama via proxy</p>
+      <button onclick="alert('Test successful!')" style="padding:10px;background:#3b82f6;color:white;border:none;border-radius:5px;cursor:pointer;width:100%;">
+        Test Connection
+      </button>
+      <p style="margin:10px 0 0 0;font-size:12px;color:#6b7280;">Proxy: http://localhost:3000</p>
+    </div>
+  \`;
+  document.body.appendChild(widget);
+})();`;
+            
+            // Create a draggable link
+            const link = document.createElement('a');
+            link.href = bookmarkletCode;
+            link.textContent = '🤖 Training Copilot';
+            link.style.cssText = `
+                display: block;
+                padding: 15px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                text-decoration: none;
+                border-radius: 8px;
+                margin: 10px 0;
+                font-weight: bold;
+                text-align: center;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                cursor: move;
+            `;
+            
+            // Make draggable
+            link.draggable = true;
+            link.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/uri-list', bookmarkletCode);
+                e.dataTransfer.setData('text/plain', bookmarkletCode);
+                e.dataTransfer.effectAllowed = 'copy';
+            });
+            
+            resultDiv.innerHTML = `
+                <div class="success">
+                    ✅ Drag this link to your bookmarks bar:
+                </div>
+            `;
+            resultDiv.appendChild(link);
+            
+            // Show instructions
+            const instructions = document.createElement('div');
+            instructions.innerHTML = `
+                <p style="margin-top: 10px;"><strong>Or manually create bookmark:</strong></p>
+                <div class="code">
+                    1. Right-click bookmarks bar → "Add page"<br>
+                    2. Name: "Training Copilot"<br>
+                    3. URL: Copy the code below<br>
+                    4. Save
+                </div>
+                <textarea style="width:100%;height:100px;margin-top:10px;font-family:monospace;padding:10px;" onclick="this.select()">${bookmarkletCode}</textarea>
+            `;
+            resultDiv.appendChild(instructions);
+        }
+        
+        // Auto-run tests
+        updateChecklist();
+        testProxyHealth();
+        
+    </script>
+</body>
+</html>
